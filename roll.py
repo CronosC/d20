@@ -60,7 +60,7 @@ def eval(str):
         else:
             adjust = int(args[2])
         rolling = True
-        roll(int(args[1]), int(args[0]), adjust, rd.randint(50, 150))
+        roll(int(args[1]), int(args[0]), adjust, int(rd.gauss(75, 10)))
         rolling = False
     except:
         print("Invalid input")
