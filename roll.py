@@ -7,68 +7,122 @@ import re
 from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 from pygame import mixer
+import json
+
+# load the stats.txt file into a dictionairy
+with open('stats.txt') as file:
+    stats_string = file.read()
+stats = json.loads(stats_string)
 
 rolling = False
 running = True
 mixer.init()
 
-def roll(dice, number, adjust, length):
+def roll(dice, number, adjust, length, attributes=[]):
+    rolling = True
     mixer.music.set_volume(0.25)
     mixer.music.load("click.wav")
     max_length = length #+ rd.randint(0, int(length / 2))
     sleep_time_mapping_func = interp1d([0,max_length],[1,0])
+
+    total_minus = 0
+    results = [0]*number
+    if attributes != []:
+        print("  ", end="") # for spacing
+        for attribute in attributes:
+            print('{0: >4}'.format(attribute) +'{0: <2}'.format(str(stats[attribute])), end="")
+        print("")
+
     while(length > 0):
-        print("  |", end="")
+        print("  ", end="") # for spacing
+        print("\033[1m", end="") #makes it bold
+        print("|", end="")
+        print(Fore.BLACK + Back.WHITE, end="")
         for n in range(0, number):
             res = rd.randint(1, dice)
-            print(Fore.BLACK + Back.WHITE + '\033[1m', end= "")
+            results[n] = res
             if res == 1:
-                print('{0: >5}'.format(" " + "<o>" + " "), end="")
+                print(Back.LIGHTGREEN_EX +'{0: >5}'.format(" " + "<o>" + " ") + Back.WHITE, end="")
+            elif res == 20:
+                print(Back.RED + '{0: >5}'.format(" " + str(res) + "  ") + Back.WHITE, end="")
+            elif len(attributes) > n:
+                if res <= stats[attributes[n]]:
+                    print(Fore.GREEN + '{0: >5}'.format(" " + str(res) + "  ") + Fore.BLACK + Back.WHITE, end="")
+                else:
+                    print(Fore.RED + '{0: >5}'.format(" " + str(res) + "  ") + Fore.BLACK + Back.WHITE, end="")
             else:
                 print('{0: >5}'.format(" " + str(res) + "  "), end="")
-            print(Style.RESET_ALL, end="|")
+
+            print(Fore.WHITE + Back.BLACK + "|" + Fore.BLACK + Back.WHITE, end="")
 
         if length == 1:
-                mixer.music.set_volume(0.6)
+            mixer.music.set_volume(0.6)
+
+        print(Style.RESET_ALL, end="")
         mixer.music.play()
 
-        if(adjust != 0):
-            if(adjust < 0):
-                print(' - ' + str(abs(adjust)), end="")
-            else:
-                print(' + ' + str(adjust), end="")
-
         print('\r\033[A')
+
         sleep_time = float(sleep_time_mapping_func(length))**15
         time.sleep(sleep_time)
         length -= 1
 
+
+
+    if(attributes != []):
+        for n in range(0, number):
+            if results[n] > stats[attributes[n]]:
+                total_minus += results[n] - stats[attributes[n]]
+
+        if total_minus > 0:
+            print('\n    => -' + str(total_minus), end="")
+        else:
+            print('\n    => Pass!', end="")
+
     print("")
+    rolling = False
 
 def eval(str):
     print('\r\033[A', end="")
+
+    xdy_regex = "^(\d)+([d]){1}(\d)*(\d)$"
+    stats_roll_regex = "^(MU( )*|KL( )*|IN( )*|CH( )*|FF( )*|GE( )*|KO( )*|KK( )*|)+$"
+    stats_search_regex = "(MU|KL|IN|CH|FF|GE|KO|KK){1}"
+
+    time_delay = int(rd.gauss(35, 10))
+
     if str == 'q':
         running = False
         return
     elif str == "r":
-        roll(20, 3, 0, rd.randint(50, 150))
-        return
-    args = re.split("d|[+-]| [+-] ", str)
-    try:
-        if len(args) == 2:
-            adjust = 0
-        else:
-            adjust = int(args[2])
-        rolling = True
-        roll(int(args[1]), int(args[0]), adjust, int(rd.gauss(75, 10)))
-        rolling = False
-    except:
-        print("Invalid input")
+        roll(20, 3, 0, time_delay)
+    elif str == "h":
+        print_help()
+    elif re.match(xdy_regex, str):
+        args = re.split("d", str)
+        roll(int(args[1]), int(args[0]), 0, time_delay)
+    elif re.match(stats_roll_regex, str):
+        str_no_space = str.replace(" ", "")
+        args = re.findall(stats_search_regex, str)
+        roll(20, len(args), 0, time_delay, attributes=args)
+    else:
+        print_input_error()
+
+def print_input_error():
+    print("Invalid input: Enter h to get a list of recognized commands")
+
+def print_help():
+    print("Recognized inputs are:")
+    print("q (quit)")
+    print("h (help)")
+    print("r (roll 3 d20)")
+    print("xdy (roll x y sided die)")
+    print("MMFFKO (roll a d20 against the stats defined in stats.txt)")
+
 
 
 def main():
-    print("r to roll 3 d20")
-    print("'xdy' to roll x die with y sides")
+    print_help()
     while(running):
         if(not rolling):
             eval(input())
