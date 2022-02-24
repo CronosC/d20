@@ -18,6 +18,7 @@ rolling = False
 running = True
 mixer.init()
 
+
 def roll(dice, number, adjust, length, attributes=[]):
     rolling = True
     mixer.music.set_volume(0.25)
@@ -75,9 +76,9 @@ def roll(dice, number, adjust, length, attributes=[]):
                 total_minus += results[n] - stats[attributes[n]]
 
         if total_minus > 0:
-            print('\n    => -' + str(total_minus), end="")
+            print('\033[' + str(3 + 6*number) + 'C => -' + str(total_minus), end="")
         else:
-            print('\n    => Pass!', end="")
+            print('\033[' + str(3 + 6*number) + 'C => Pass!', end="")
 
     print("")
     rolling = False
@@ -89,7 +90,7 @@ def eval(str):
     stats_roll_regex = "^(MU( )*|KL( )*|IN( )*|CH( )*|FF( )*|GE( )*|KO( )*|KK( )*|)+$"
     stats_search_regex = "(MU|KL|IN|CH|FF|GE|KO|KK){1}"
 
-    time_delay = int(rd.gauss(35, 10))
+    time_delay = int(rd.gauss(50, 15))
 
     if str == 'q':
         running = False
@@ -98,12 +99,15 @@ def eval(str):
         roll(20, 3, 0, time_delay)
     elif str == "h":
         print_help()
+    elif str == "s":
+        print_stats()
     elif re.match(xdy_regex, str):
         args = re.split("d", str)
         roll(int(args[1]), int(args[0]), 0, time_delay)
     elif re.match(stats_roll_regex, str):
         str_no_space = str.replace(" ", "")
         args = re.findall(stats_search_regex, str)
+        last_roll_needs_clear = True
         roll(20, len(args), 0, time_delay, attributes=args)
     else:
         print_input_error()
@@ -113,15 +117,26 @@ def print_input_error():
 
 def print_help():
     print("Recognized inputs are:")
+    print("="*60)
     print("q (quit)")
     print("h (help)")
     print("r (roll 3 d20)")
+    print("s (show current stats)")
     print("xdy (roll x y sided die)")
-    print("MMFFKO (roll a d20 against the stats defined in stats.txt)")
+    print("MUFFKO (roll a d20 against the stats defined in stats.txt)")
+    print("="*60)
+    print("")
 
+def print_stats():
+    for key in stats:
+        print('{0: ^8}'.format(key + ": " + str(stats[key])), end="|")
+    print("")
 
+def clear_prev_line():
+    print("\033[A\033[2K", end="")
 
 def main():
+
     print_help()
     while(running):
         if(not rolling):
