@@ -8,6 +8,7 @@ from os import environ
 environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 from pygame import mixer
 import json
+import shutil
 
 # load the stats.txt file into a dictionairy
 with open('stats.txt') as file:
@@ -17,6 +18,9 @@ stats = json.loads(stats_string)
 rolling = False
 running = True
 mixer.init()
+
+def get_terminal_size():
+    return shutil.get_terminal_size((80, 20))
 
 
 def roll(dice, number, adjust, length, attributes=[]):
@@ -34,6 +38,7 @@ def roll(dice, number, adjust, length, attributes=[]):
             print('{0: >4}'.format(attribute) +'{0: <2}'.format(str(stats[attribute])), end="")
         print("")
 
+    # the rolling loop
     while(length > 0):
         print("  ", end="") # for spacing
         print("\033[1m", end="") #makes it bold
@@ -68,17 +73,35 @@ def roll(dice, number, adjust, length, attributes=[]):
         time.sleep(sleep_time)
         length -= 1
 
-
-
+    # eval after rolling
     if(attributes != []):
         for n in range(0, number):
             if results[n] > stats[attributes[n]]:
                 total_minus += results[n] - stats[attributes[n]]
 
-        if total_minus > 0:
-            print('\033[' + str(3 + 6*number) + 'C => -' + str(total_minus), end="")
+        crit_res_chance = 1.0
+        for n in range(0, number-1):
+            crit_res_chance = crit_res_chance * (1/dice)
+
+        if(len(results) == 3 and results.count("1") >= 2):
+            print("\033[" + str(3 + 6*number) + "C =>" + Fore.LIGHTGREEN_EX +  " Critical Success!" + Fore.BLACK + ' (' + '{:.1%}'.format(crit_res_chance) + ")")
+        elif(len(results) == 3 and results.count("20") >= 2):
+            print("\033[" + str(3 + 6*number) + "C =>" + Fore.LIGHTRED_EX +  " Critical Fail!" + Fore.BLACK+ ' (' + '{:.1%}'.format(crit_res_chance) + ")")
         else:
-            print('\033[' + str(3 + 6*number) + 'C => Pass!', end="")
+            pass_chance = 1.0
+            miss_by_this_chance = 1.0
+            this_or_better_chance = 1.0
+            for n in range(0, len(attributes)):
+                pass_chance = pass_chance  * (stats[attributes[n]] / dice)
+                miss_by_this_chance = miss_by_this_chance * (max([results[n], stats[attributes[n]]]) / dice)
+                this_or_better_chance = this_or_better_chance * (results[n] / dice)
+
+
+            if total_minus > 0:
+                print('\033[' + str(3 + 6*number) + 'C => -' + str(total_minus) + ' (' + '{:.1%}'.format(pass_chance) + "/" + '{:.1%}'.format(miss_by_this_chance) + ")", end="")
+            else:
+
+                print('\033[' + str(3 + 6*number) + 'C => Pass!' + ' (' + '{:.1%}'.format(pass_chance) + "/" + '{:.1%}'.format(this_or_better_chance) + ")", end="")
 
     print("")
     rolling = False
@@ -116,18 +139,25 @@ def print_input_error():
     print("Invalid input: Enter h to get a list of recognized commands")
 
 def print_help():
+    options_dict = {
+    "q": "quit",
+    "h": "help",
+    "r": "roll three 20-sided die",
+    "s": "show stats (saved in stats.txt)",
+    "xdy": "roll x y-sided die",
+    "MU FF KK": "Roll against the selected stats"
+    }
+    format_str_key = '{0: >' + str(int((get_terminal_size()[0]-4)*0.25)) + '}'
+    format_str_expl = '{0: <' + str(int((get_terminal_size()[0]-4)*0.75)) + '}'
     print("Recognized inputs are:")
-    print("="*60)
-    print("q (quit)")
-    print("h (help)")
-    print("r (roll 3 d20)")
-    print("s (show current stats)")
-    print("xdy (roll x y sided die)")
-    print("MUFFKO (roll a d20 against the stats defined in stats.txt)")
-    print("="*60)
+    print("*" + ("="*(get_terminal_size()[0] - 2)) + "*")
+    for key in options_dict:
+        print("|" + format_str_key.format(key) + ": " + format_str_expl.format(options_dict[key]) + "|" )
+    print("*" + ("="*(get_terminal_size()[0] - 2)) + "*")
     print("")
 
 def print_stats():
+    print("|", end="")
     for key in stats:
         print('{0: ^8}'.format(key + ": " + str(stats[key])), end="|")
     print("")
